@@ -155,7 +155,7 @@ async def send(interaction, member: discord.Member, amount: int):
             saveAccount(targetAccount, ["cash"])
 
             embed = discord.Embed(
-                description=f"{member.display_name}님에게 {amount}원을 송금했습니다!",
+                description=f"{member.display_name}님에게 {amount}원을 송금했습니다!\n{account['cash']}원 남았습니다.",
                 color=0x00FF00
             )
             embed.set_author(
