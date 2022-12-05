@@ -53,6 +53,11 @@ def saveAccount(account, saves):
     conn.commit()
     print("계정을 저장했습니다.")
 
+def log(user, target, act, amount):
+    queryString = f"insert into nombot.moneylog values('{user}', '{target}', {act}, {amount}, '{getCurrentTime()}')"
+    cur.execute(queryString)
+    conn.submit()
+
 def getCurrentTime():
     return datetime.now()
 
@@ -144,7 +149,7 @@ async def check(interaction):
 
 @tree.command(name="송금", description="대상 유저에게 돈을 전송합니다.", guild=discord.Object(guildId))
 async def send(interaction, member: discord.Member, amount: int):
-    if amount > 0 and amount < 5000:
+    if amount > 0 and amount <= 5000:
         account = getAccount(interaction.user.id)
         targetAccount = getAccount(member.id)
 
