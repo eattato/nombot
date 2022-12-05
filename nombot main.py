@@ -210,6 +210,40 @@ async def checkRate(interaction):
     )
     await interaction.response.send_message(content=None, embed=embed)
 
+# company commands
+@tree.command(name="기업설립", description="10000원을 소모해 기업을 만들고 20주를 가집니다.", guild=discord.Object(guildId))
+async def createCompany(interaction, name: str):
+    account = getAccount(interaction.user.id)
+    if account["cash"] >= 10000:
+        if len(name) > 0 and len(name) <= 50:
+            cur.execute(f"insert into nombot.company(comowner, comname, stock, cash) values('{interaction.user.id}', '{name}', 500, 0)")
+            #cur.execute(f"insert into nombot.stock values('{interaction.user.id}', '{name}', 500, 0)") 주식 추가, 근데 auto_increment 값 구해야함
+            conn.commit()
+
+            embed = discord.Embed(
+                description=f"{interaction.user.display_name}님이 기업 {name}를 설립했습니다!",
+                color=0x00FF00
+            )
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 기업 {name}를 설립했습니다!",
+                icon_url=interaction.user.display_avatar
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+        else:
+            embed = discord.Embed(
+                title="기업 설립",
+                description="기업 이름은 최대 1 ~ 50자 입니다!",
+                color=0xFF0000
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            title="기업 설립",
+            description="기업 설립 자금이 부족합니다! 10000원 이상의 현금을 가져오세요!",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
 @tree.command(name="금리설정", description="[관리자 전용] 현재 금리 값을 설정합니다.", guild=discord.Object(guildId))
 async def updateRate(interaction, rate: float, rateMin: float, rateMax: float, rateChange: float):
     if interaction.user.hasPermission("ADMINISTRATOR"):
