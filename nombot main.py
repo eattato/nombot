@@ -81,9 +81,12 @@ async def check(interaction):
     if account["lastseen"] == None or (account["lastseen"] - getCurrentTime()).days >= 1:
         earn = 500
         desc = f"오늘로 {account['streak'] + 1}일 연속으로 출석하셨습니다!\n"
-        if account['streak'] + 1 >= getCurrentTime().max.day: # 연속 출석이 이번 달 꽉 채우면 추가 지급
+        if (account['streak'] + 1) % 30 == 0: # 한 달 연속 출석
             earn += 2500
-            desc += f"{getCurrentTime().month}월 한 달을 전부 출석하셨군요! 축하드립니다!\n"
+            desc += f"{(account['streak'] + 1) // 30}달 동안 매일 출석하셨군요! 축하드립니다!\n"
+        if (account['streak'] + 1) % 365 == 0: # 1년 연속 출석
+            earn += 50000
+            desc += f"{(account['streak'] + 1) // 365}년 동안 매일 출석하셨군요! 축하드립니다!\n"
         desc += f"{earn}원 적립해 {account['cash'] + earn}원이 되었습니다!\n"
         
         # 계정 정보 업데이트
@@ -104,7 +107,10 @@ async def check(interaction):
         await interaction.response.send_message(content=None, embed=embed)
     else: # 이미 출석한 경우
         dateLeft = account["lastseen"] - getCurrentTime()
-        dateLeftStr = f"{dateLeft.seconds // 3600}시간 {dateLeft.seconds // 60}분 {dateLeft.seconds}초"
+        hour = dateLeft.seconds // 3600
+        minute = (dateLeft.seconds - 3600 * hour) // 60
+
+        dateLeftStr = f"{hour}시간 {minute}분 {dateLeft.seconds % 60}초"
         embed = discord.Embed(
             description=f"오늘은 이미 출석하셨네요!\n"
                         + f"다음 출석까지는 {dateLeftStr} 남았습니다.",
