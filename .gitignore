@@ -153,3 +153,4 @@ cython_debug/
 
 # hides token
 token.txt
+db.json
