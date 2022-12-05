@@ -2,11 +2,50 @@ import discord
 from discord import app_commands
 import mariadb
 import json
+import pandas as pd
+from datetime import datetime
+from pytz import timezone
 
 guildId = 820582732219547728
 #guildId = 1044579957214556180
 client = discord.Client(intents=discord.Intents.default())
+
 tree = app_commands.CommandTree(client)
+conn = None # db 연결
+cur = None
+
+# private functions
+def getAccount(id):
+    queryString = f"select * from nombot.members where id = {id}"
+    userData = pd.read_sql(queryString, conn)
+    if userData.shape[0] == 0:
+        print("유저 계정을 생성했습니다!")
+        userData = pd.DataFrame.from_dict({
+            "id": [id],
+            "cash": [0],
+            "debt": [0],
+            "lastseen": [None],
+            "streak": [0]
+        })
+        queryString = f"insert into nombot.members values('{id}', 0, 0, NULL, 0)"
+        cur.execute(queryString)
+    userData = userData.iloc[0]
+    return userData
+
+def saveAccount(account):
+    queryString = f"update nombot.members set cash = {account['cash']}, debt = {account['debt']}, lastseen = '{account['lastseen']}', streak = {account['streak']} where id = {account['id']};"
+    cur.execute(queryString)
+    conn.commit()
+    print("계정을 저장했습니다.")
+
+def getCurrentTime():
+    return datetime.now()
+
+def timeFormat(target):
+    return target.strftime("%Y-%m-%d %H:%M:%S")
+
+def stringToTime(target):
+    return datetime.strptime(target, "%Y-%m-%d %H:%M:%S")
 
 # client events
 @client.event
@@ -15,11 +54,67 @@ async def on_ready():
     print("서버 로드 완료")
 
 # slash commands
+@tree.command(name="계좌", description="현재 내 계좌의 금액과 빚을 조회합니다.", guild=discord.Object(guildId))
+async def account(interaction):
+    account = getAccount(interaction.user.id)
+    idk = "몰?루 "
+    embed = discord.Embed(
+        description=f"현금 {account['cash']}원\n"
+                    + f"빚 {account['debt']}원\n"
+                    + f"보유 주식 가치 {idk}원\n\n"
+                    + f"보유 자산 {idk}원\n"
+                    + f"보유 부채 {idk}원\n"
+                    + f"보유 자본 {idk}원",
+        color=0x00FF00,
+    )
+    embed.set_author(
+        name=f"{interaction.user.display_name}님의 계좌",
+        icon_url=interaction.user.display_avatar
+    )
+    await interaction.response.send_message(content=None, embed=embed)
+
 @tree.command(name="출첵", description="하루의 출석을 인증받고 500원을 받으세요!", guild=discord.Object(guildId))
 async def check(interaction):
+    account = getAccount(interaction.user.id)
 
-    print(interaction.user.id)
-    await interaction.response.send_message("출첵")
+    # 아예 출첵 기록이 없거나 출첵 기록 하루 이후라면
+    if account["lastseen"] == None or (account["lastseen"] - getCurrentTime()).days >= 1:
+        earn = 500
+        desc = f"오늘로 {account['streak'] + 1}일 연속으로 출석하셨습니다!\n"
+        if account['streak'] + 1 >= getCurrentTime().max.day: # 연속 출석이 이번 달 꽉 채우면 추가 지급
+            earn += 2500
+            desc += f"{getCurrentTime().month}월 한 달을 전부 출석하셨군요! 축하드립니다!\n"
+        desc += f"{earn}원 적립해 {account['cash'] + earn}원이 되었습니다!\n"
+        
+        # 계정 정보 업데이트
+        account["cash"] += earn
+        account["lastseen"] = timeFormat(getCurrentTime())
+        account["streak"] += 1
+        saveAccount(account)
+
+        # 메시지 포맷 & 전송
+        embed = discord.Embed(
+            description=desc,
+            color=0x00FF00
+        )
+        embed.set_author(
+            name=f"{interaction.user.display_name}님이 출석했습니다.",
+            icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+    else: # 이미 출석한 경우
+        dateLeft = account["lastseen"] - getCurrentTime()
+        dateLeftStr = f"{dateLeft.seconds // 3600}시간 {dateLeft.seconds // 60}분 {dateLeft.seconds}초"
+        embed = discord.Embed(
+            description=f"오늘은 이미 출석하셨네요!\n"
+                        + f"다음 출석까지는 {dateLeftStr} 남았습니다.",
+            color=0xFF0000
+        )
+        embed.set_author(
+            name=f"{interaction.user.display_name}님은 이미 출석했습니다.",
+            icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
 
 # main
 try:
@@ -27,6 +122,7 @@ try:
     with open("db.json") as dbConfig:
         dbConfig = json.load(dbConfig)
         conn = mariadb.connect(**dbConfig) # 딕셔너리를 파라미터로 변환
+        cur = conn.cursor()
         print("데이터 베이스 연결 완료")
 
     # 토큰 로드 & 실행
