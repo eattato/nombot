@@ -210,6 +210,35 @@ async def checkRate(interaction):
     )
     await interaction.response.send_message(content=None, embed=embed)
 
+@tree.command(name="금리설정", description="[관리자 전용] 현재 금리 값을 설정합니다.", guild=discord.Object(guildId))
+async def updateRate(interaction, rate: float, rateMin: float, rateMax: float, rateChange: float):
+    if interaction.user.hasPermission("ADMINISTRATOR"):
+        if rate >= 0 and rate <= 1 and rateMin >= 0 and rateMin <= 1 and rateMax >= 0 and rateMax <= 1 and rateChange >= 0 and rateChange <= 1 and rateMin <= rateMax:
+            queryString = f"update nombot.economy set rate = {rate}, ratemin = {rateMin}, ratemax = {rateMax}, ratechange = {rateChange}"
+            cur.execute(queryString)
+            conn.commit()
+
+            embed = discord.Embed(
+                title="금리 설정",
+                description="금리를 성공적으로 설정하였습니다!",
+                color=0x00FF00
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+        else:
+            embed = discord.Embed(
+                title="금리 설정",
+                description="금리를 설정하는데 실패했습니다.\n모든 매개변수는 0 이상 1 이하여야 합니다.",
+                color=0xFF0000
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            title="금리 설정",
+            description="관리자 전용 기능입니다!",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
 # main
 try:
     # db 연결
