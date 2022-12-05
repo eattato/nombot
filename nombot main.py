@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 import mariadb
+import json
 
 guildId = 820582732219547728
 #guildId = 1044579957214556180
@@ -22,14 +23,13 @@ async def check(interaction):
 
 # main
 try:
-    conn = mariadb.connect(
-        user="jm-han",
-        password="jm-han",
-        host="34.64.154.53",
-        port=3306,
-        database="real_estate"
-    )
+    # db 연결
+    with open("db.json") as dbConfig:
+        dbConfig = json.load(dbConfig)
+        conn = mariadb.connect(**dbConfig) # 딕셔너리를 파라미터로 변환
+        print("데이터 베이스 연결 완료")
 
+    # 토큰 로드 & 실행
     with open("token.txt") as token:
         token = token.readline()
         client.run(token)
