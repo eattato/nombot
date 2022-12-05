@@ -1,5 +1,7 @@
 import discord
 from discord import app_commands
+from discord.ext import commands
+
 import mariadb
 import json
 import pandas as pd
@@ -32,8 +34,21 @@ def getAccount(id):
     userData = userData.iloc[0]
     return userData
 
-def saveAccount(account):
-    queryString = f"update nombot.members set cash = {account['cash']}, debt = {account['debt']}, lastseen = '{account['lastseen']}', streak = {account['streak']} where id = {account['id']};"
+def saveAccount(account, saves):
+    queryList = []
+    queryListStr = ""
+    for key, val in account.iteritems():
+        if key in saves:
+            if val != None:
+                queryList.append(f"{key} = '{val}'")
+            else:
+                queryList.append(f"{key} = null")
+    for ind, queryData in enumerate(queryList):
+        queryListStr += queryData
+        if ind != len(queryList) - 1:
+            queryListStr += ", "
+
+    queryString = f"update nombot.members set {queryListStr} where id = {account['id']};"
     cur.execute(queryString)
     conn.commit()
     print("계정을 저장했습니다.")
@@ -73,7 +88,7 @@ async def account(interaction):
     )
     await interaction.response.send_message(content=None, embed=embed)
 
-@tree.command(name="출첵", description="하루의 출석을 인증받고 500원을 받으세요!", guild=discord.Object(guildId))
+@tree.command(name="출근", description="하루의 출석을 인증받고 500원을 받으세요!", guild=discord.Object(guildId))
 async def check(interaction):
     account = getAccount(interaction.user.id)
 
@@ -81,19 +96,24 @@ async def check(interaction):
     if account["lastseen"] == None or (account["lastseen"] - getCurrentTime()).days >= 1:
         earn = 500
         desc = f"오늘로 {account['streak'] + 1}일 연속으로 출석하셨습니다!\n"
-        if (account['streak'] + 1) % 30 == 0: # 한 달 연속 출석
-            earn += 2500
-            desc += f"{(account['streak'] + 1) // 30}달 동안 매일 출석하셨군요! 축하드립니다!\n"
-        if (account['streak'] + 1) % 365 == 0: # 1년 연속 출석
-            earn += 50000
-            desc += f"{(account['streak'] + 1) // 365}년 동안 매일 출석하셨군요! 축하드립니다!\n"
+
+        current = account['streak'] + 1
+        if current % 336 == 0: # 1년 연속 출석
+            earn += 100000
+            desc += f"{(account['streak'] + 1) // 365}년 동안 매일 출석하셨군요! 정말 대단하네요!\n"
+        elif current % 28 == 0: # 1달 연속 출석
+            earn += 5000
+            desc += f"{(account['streak'] + 1) // 28}달 동안 매일 출석하셨군요! 대단하네요!\n"
+        elif current % 7 == 0: # 1주 연속 출석
+            earn += 1000
+            desc += f"{(account['streak'] + 1) // 7}주 동안 매일 출석하셨군요! 축하드립니다!\n"
         desc += f"{earn}원 적립해 {account['cash'] + earn}원이 되었습니다!\n"
         
         # 계정 정보 업데이트
         account["cash"] += earn
         account["lastseen"] = timeFormat(getCurrentTime())
         account["streak"] += 1
-        saveAccount(account)
+        saveAccount(account, ["cash", "lastseen", "streak"])
 
         # 메시지 포맷 & 전송
         embed = discord.Embed(
@@ -113,11 +133,54 @@ async def check(interaction):
         dateLeftStr = f"{hour}시간 {minute}분 {dateLeft.seconds % 60}초"
         embed = discord.Embed(
             description=f"오늘은 이미 출석하셨네요!\n"
-                        + f"다음 출석까지는 {dateLeftStr} 남았습니다.",
+                        + f"다음 출석까지 {dateLeftStr} 남았습니다.",
             color=0xFF0000
         )
         embed.set_author(
             name=f"{interaction.user.display_name}님은 이미 출석했습니다.",
+            icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
+@tree.command(name="송금", description="대상 유저에게 돈을 전송합니다.", guild=discord.Object(guildId))
+async def send(interaction, member: discord.Member, amount: int):
+    if amount > 0 and amount < 5000:
+        account = getAccount(interaction.user.id)
+        targetAccount = getAccount(member.id)
+
+        if account["cash"] >= amount:
+            account["cash"] -= amount
+            targetAccount["cash"] += amount
+            saveAccount(account, ["cash"])
+            saveAccount(targetAccount, ["cash"])
+
+            embed = discord.Embed(
+                description=f"{member.display_name}님에게 {amount}원을 송금했습니다!",
+                color=0x00FF00
+            )
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {amount}원 송금!",
+                icon_url=interaction.user.display_avatar
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+        else:
+            required = -(account["cash"] - amount)
+            embed = discord.Embed(
+                description=f"돈이 {required}원 부족합니다..",
+                color=0xFF0000
+            )
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {amount}원 송금!",
+                icon_url=interaction.user.display_avatar
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            description=f"이런, 돈은 1 ~ 5000원까지만 보낼 수 있어요.",
+            color=0xFF0000
+        )
+        embed.set_author(
+            name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {amount}원 송금!",
             icon_url=interaction.user.display_avatar
         )
         await interaction.response.send_message(content=None, embed=embed)
