@@ -7,6 +7,7 @@ import json
 import pandas as pd
 from datetime import datetime
 from pytz import timezone
+import random
 
 guildId = 820582732219547728
 #guildId = 1044579957214556180
@@ -37,7 +38,7 @@ def getAccount(id):
 def saveAccount(account, saves):
     queryList = []
     queryListStr = ""
-    for key, val in account.iteritems():
+    for key, val in account.items():
         if key in saves:
             if val != None:
                 queryList.append(f"{key} = '{val}'")
@@ -245,10 +246,10 @@ async def createCompany(interaction, name: str):
         await interaction.response.send_message(content=None, embed=embed)
 
 @tree.command(name="금리설정", description="[관리자 전용] 현재 금리 값을 설정합니다.", guild=discord.Object(guildId))
-async def updateRate(interaction, rate: float, rateMin: float, rateMax: float, rateChange: float):
+async def updateRate(interaction, rate: float, ratemin: float, ratemax: float, ratechange: float):
     if interaction.user.hasPermission("ADMINISTRATOR"):
-        if rate >= 0 and rate <= 1 and rateMin >= 0 and rateMin <= 1 and rateMax >= 0 and rateMax <= 1 and rateChange >= 0 and rateChange <= 1 and rateMin <= rateMax:
-            queryString = f"update nombot.economy set rate = {rate}, ratemin = {rateMin}, ratemax = {rateMax}, ratechange = {rateChange}"
+        if rate >= 0 and rate <= 1 and ratemin >= 0 and ratemin <= 1 and ratemax >= 0 and ratemax <= 1 and ratechange >= 0 and ratechange <= 1 and ratemin <= ratemax:
+            queryString = f"update nombot.economy set rate = {rate}, ratemin = {ratemin}, ratemax = {ratemax}, ratechange = {ratechange}"
             cur.execute(queryString)
             conn.commit()
 
@@ -269,6 +270,51 @@ async def updateRate(interaction, rate: float, rateMin: float, rateMax: float, r
         embed = discord.Embed(
             title="금리 설정",
             description="관리자 전용 기능입니다!",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
+# gamble
+@tree.command(name="반반도박", description="500 ~ 3000원을 소모해 50% 확률로 판돈의 절반을 잃거나 얻습니다.", guild=discord.Object(guildId))
+async def gambleHalf(interaction, stake: int):
+    if stake >= 500 and stake <= 3000:
+        account = getAccount(interaction.user.id)
+        if account["cash"] >= stake:
+            result = random.randint(0, 2)
+            if result == 0:
+                account["cash"] += stake // 2
+                embed = discord.Embed(
+                    description=f"반반 도박 성공!\n판돈 {stake}원을 걸어 {stake // 2}원을 벌었습니다.\n현재 소지금 : {account['cash']}원",
+                    color=0x00FF00
+                )
+                embed.set_author(
+                    name=f"{interaction.user.display_name}님이 반반 도박 성공!",
+                    icon_url=interaction.user.display_avatar
+                )
+            else:
+                account["cash"] -= stake // 2
+                embed = discord.Embed(
+                    description=f"반반 도박 실패..\n판돈 {stake}원을 걸어 {stake // 2}원을 잃었습니다.\n현재 소지금 : {account['cash']}원",
+                    color=0xFF0000
+                )
+                embed.set_author(
+                    name=f"{interaction.user.display_name}님이 반반 도박 실패..",
+                    icon_url=interaction.user.display_avatar
+                )
+            saveAccount(account, ["cash"])
+
+            await interaction.response.send_message(content=None, embed=embed)
+        else:
+            embed = discord.Embed(
+                title="반반 도박",
+                description=f"가지고 있는 돈이 제시한 판돈보다 적습니다!\n현재 소지금 : {account['cash']}원\n판돈 : {stake}원",
+                color=0xFF0000
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            title="반반 도박",
+            description="판돈은 최대 500 ~ 3000원 입니다.",
             color=0xFF0000
         )
         await interaction.response.send_message(content=None, embed=embed)
