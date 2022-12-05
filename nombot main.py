@@ -67,6 +67,11 @@ def timeFormat(target):
 def stringToTime(target):
     return datetime.strptime(target, "%Y-%m-%d %H:%M:%S")
 
+def getCurrentEconomy():
+    queryString = "select * from nombot.economy"
+    economyData = pd.read_sql(queryString, conn)
+    return economyData.iloc[0]
+
 # client events
 @client.event
 async def on_ready():
@@ -189,6 +194,21 @@ async def send(interaction, member: discord.Member, amount: int):
             icon_url=interaction.user.display_avatar
         )
         await interaction.response.send_message(content=None, embed=embed)
+
+@tree.command(name="금리", description="이번 주의 금리 상황을 확인합니다.", guild=discord.Object(guildId))
+async def checkRate(interaction):
+    economy = getCurrentEconomy()
+    currentTime = getCurrentTime()
+    embed = discord.Embed(
+        title="금리 상황",
+        description=
+            f"{currentTime.year}년 {currentTime.month}월 {currentTime.day // 7 + 1}주차, 현재 금리는 {economy['rate'] * 100}% 입니다.\n\n"
+            + f"금리 변동률 : ± {economy['ratechange'] * 100}%\n"
+            + f"최저 금리 : ± {economy['ratemin'] * 100}%\n"
+            + f"최대 금리 : ± {economy['ratemax'] * 100}%",
+        color=0x00FFFF
+    )
+    await interaction.response.send_message(content=None, embed=embed)
 
 # main
 try:
