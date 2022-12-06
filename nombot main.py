@@ -61,6 +61,15 @@ def saveAccount(account, saves):
     conn.commit()
     print("계정을 저장했습니다.")
 
+def decimalComma(num):
+    num = str(num)
+    result = ""
+    for ind, char in enumerate(num[::-1]):
+        result = char + result
+        if (ind + 1) % 3 == 0 and ind != len(num) - 1:
+            result = "," + result
+    return result
+
 def log(user, target, act, amount):
     queryString = f"insert into nombot.moneylog values('{user}', '{target}', {act}, {amount}, '{getCurrentTime()}')"
     cur.execute(queryString)
@@ -90,14 +99,15 @@ async def gamble(interaction, name, stake, callback, stakeLimitMin=None, stakeLi
         else: # 돈이 없음
             embed = discord.Embed(
                 title=name,
-                description=f"가지고 있는 돈이 제시한 판돈보다 적습니다!\n현재 소지금 : {account['cash']}원\n판돈 : {stake}원",
+                description=f"가지고 있는 돈이 제시한 판돈보다 적습니다!\n"
+                            + f"현재 소지금 : {decimalComma(account['cash'])}원\n판돈 : {decimalComma(stake)}원",
                 color=0xFF0000
             )
             await interaction.response.send_message(content=None, embed=embed)
     else: # 판돈 파라미터 에러
         embed = discord.Embed(
             title=name,
-            description=f"판돈은 최대 {stakeLimitMin} ~ {stakeLimitMax}원 입니다.",
+            description=f"판돈은 최대 {decimalComma(stakeLimitMin)} ~ {decimalComma(stakeLimitMax)}원 입니다.",
             color=0xFF0000
         )
         await interaction.response.send_message(content=None, embed=embed)
@@ -122,8 +132,8 @@ async def account(interaction):
     account = getAccount(interaction.user.id)
     idk = "몰?루 "
     embed = discord.Embed(
-        description=f"현금 {account['cash']}원\n"
-                    + f"빚 {account['debt']}원\n"
+        description=f"현금 {decimalComma(account['cash'])}원\n"
+                    + f"빚 {decimalComma(account['debt'])}원\n"
                     + f"보유 주식 가치 {idk}원\n\n"
                     + f"보유 자산 {idk}원\n"
                     + f"보유 부채 {idk}원\n"
@@ -143,7 +153,7 @@ async def check(interaction):
     # 아예 출첵 기록이 없거나 출첵 기록 하루 이후라면
     if account["lastseen"] == None or (getCurrentTime() - account["lastseen"].replace(hour=0, minute=0, second=0)).days >= 1:
         earn = 500
-        desc = f"오늘로 {account['streak'] + 1}일 연속으로 출석하셨습니다!\n"
+        desc = f"오늘로 {decimalComma(account['streak'] + 1)}일 연속으로 출석하셨습니다!\n"
 
         current = account['streak'] + 1
         if current % 336 == 0: # 1년 연속 출석
@@ -155,7 +165,7 @@ async def check(interaction):
         elif current % 7 == 0: # 1주 연속 출석
             earn += 1000
             desc += f"{(account['streak'] + 1) // 7}주 동안 매일 출석하셨군요! 축하드립니다!\n"
-        desc += f"{earn}원 적립해 {account['cash'] + earn}원이 되었습니다!\n"
+        desc += f"{decimalComma(earn)}원 적립해 {decimalComma(account['cash'] + earn)}원이 되었습니다!\n"
         
         # 계정 정보 업데이트
         account["cash"] += earn
@@ -203,22 +213,23 @@ async def send(interaction, member: discord.Member, amount: int):
             saveAccount(targetAccount, ["cash"])
 
             embed = discord.Embed(
-                description=f"{member.display_name}님에게 {amount}원을 송금했습니다!\n{account['cash']}원 남았습니다.",
+                description=f"{member.display_name}님에게 {decimalComma(amount)}원을 송금했습니다!\n"
+                            + f"{decimalComma(account['cash'])}원 남았습니다.",
                 color=0x00FF00
             )
             embed.set_author(
-                name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {amount}원 송금!",
+                name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {decimalComma(amount)}원 송금!",
                 icon_url=interaction.user.display_avatar
             )
             await interaction.response.send_message(content=None, embed=embed)
         else:
             required = -(account["cash"] - amount)
             embed = discord.Embed(
-                description=f"돈이 {required}원 부족합니다..",
+                description=f"돈이 {decimalComma(required)}원 부족합니다..",
                 color=0xFF0000
             )
             embed.set_author(
-                name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {amount}원 송금!",
+                name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {decimalComma(amount)}원 송금!",
                 icon_url=interaction.user.display_avatar
             )
             await interaction.response.send_message(content=None, embed=embed)
@@ -228,7 +239,7 @@ async def send(interaction, member: discord.Member, amount: int):
             color=0xFF0000
         )
         embed.set_author(
-            name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {amount}원 송금!",
+            name=f"{interaction.user.display_name}님이 {member.display_name}님에게 {decimalComma(amount)}원 송금!",
             icon_url=interaction.user.display_avatar
         )
         await interaction.response.send_message(content=None, embed=embed)
@@ -326,7 +337,9 @@ async def gambleHalf(interaction, stake: int):
         if result == 0:
             account["cash"] += stake // 2
             embed = discord.Embed(
-                description=f"반반 도박 성공!\n판돈 {stake}원을 걸어 {stake // 2}원을 벌었습니다.\n현재 소지금 : {account['cash']}원",
+                description=f"반반 도박 성공!\n"
+                            + f"판돈 {decimalComma(stake)}원을 걸어 {decimalComma(stake // 2)}원을 벌었습니다.\n"
+                            + f"현재 소지금 : {decimalComma(account['cash'])}원",
                 color=0x00FF00
             )
             embed.set_author(
@@ -336,7 +349,9 @@ async def gambleHalf(interaction, stake: int):
         else:
             account["cash"] -= stake // 2
             embed = discord.Embed(
-                description=f"반반 도박 실패..\n판돈 {stake}원을 걸어 {stake // 2}원을 잃었습니다.\n현재 소지금 : {account['cash']}원",
+                description=f"반반 도박 실패..\n"
+                            + f"판돈 {decimalComma(stake)}원을 걸어 {decimalComma(stake // 2)}원을 잃었습니다.\n"
+                            + f"현재 소지금 : {decimalComma(account['cash'])}원",
                 color=0xFF0000
             )
             embed.set_author(
@@ -365,7 +380,10 @@ async def gambleDice(interaction, stake: int):
             result = 0
 
         embed = discord.Embed(
-            description=f"주사위를 굴려라!\n내 주사위 : {playerDice[0]}\n봇 주사위 : {enemyDice[0]}\n\n판돈 : {stake}원",
+            description=f"주사위를 굴려라!\n"
+                        + f"내 주사위 : {playerDice[0]}\n"
+                        + f"봇 주사위 : {enemyDice[0]}\n\n"
+                        + f"판돈 : {decimalComma(stake)}원",
             color = 0xAAAAAA
         )
         embed.set_author(
@@ -375,26 +393,33 @@ async def gambleDice(interaction, stake: int):
         await interaction.response.send_message(content=None, embed=embed)
         await asyncio.sleep(0.5)
 
-        embed.description = f"주사위를 굴려라!\n내 주사위 : {playerDice[0]} + {playerDice[1]}\n봇 주사위 : {enemyDice[0]} + {enemyDice[1]}\n\n판돈 : {stake}원"
+        embed.description="주사위를 굴려라!\n"
+        + f"내 주사위 : {playerDice[0]} + {playerDice[1]}\n"
+        + f"봇 주사위 : {enemyDice[0]} + {enemyDice[1]}\n\n"
+        + f"판돈 : {decimalComma(stake)}원"
         await interaction.edit_original_response(content=None, embed=embed)
         await asyncio.sleep(0.5)
 
-        embed.description = f"주사위를 굴려라!\n내 주사위 : {playerDice[0]} + {playerDice[1]} = {sum(playerDice)}\n봇 주사위 : {enemyDice[0]} + {enemyDice[1]} = {sum(enemyDice)}\n\n"
+        embed.description = f"주사위를 굴려라!\n"
+        + f"내 주사위 : {playerDice[0]} + {playerDice[1]} = {sum(playerDice)}\n"
+        + f"봇 주사위 : {enemyDice[0]} + {enemyDice[1]} = {sum(enemyDice)}\n\n"
         if result == 0:
-            embed.description += f"무승부!\n현재 소지금 : {account['cash']}원"
+            embed.description += f"무승부!\n현재 소지금 : {decimalComma(account['cash'])}원"
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 주사위 도박 무승부",
                 icon_url=interaction.user.display_avatar
             )
         elif result == 1:
-            embed.description += f"주사위 도박 성공!\n판돈 {stake}원을 벌었습니다.\n현재 소지금 : {account['cash']}원"
+            embed.description += f"주사위 도박 성공!\n"
+            + f"판돈 {decimalComma(stake)}원을 벌었습니다.\n"
+            + f"현재 소지금 : {decimalComma(account['cash'])}원"
             embed.color = 0x00FF00
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 주사위 도박 성공",
                 icon_url=interaction.user.display_avatar
             )
         elif result == -1:
-            embed.description += f"주사위 도박 실패..\n판돈 {stake}원을 잃었습니다.\n현재 소지금 : {account['cash']}원"
+            embed.description += f"주사위 도박 실패..\n판돈 {decimalComma(stake)}원을 잃었습니다.\n현재 소지금 : {decimalComma(account['cash'])}원"
             embed.color = 0xFF0000
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 주사위 도박 실패",
@@ -431,7 +456,9 @@ async def gambleSlot(interaction):
         saveAccount(account, ["cash"]) # save account 하면서 자동 커밋, 위의 execute도 커밋됨
 
         embed = discord.Embed(
-            description=f"슬롯 머신을 돌려라!\n\n{slotSaves[0][0]} {slotSaves[0][1]} {slotSaves[0][2]}\n\n현재 누적금 : {economy['jackpot']}원",
+            description=f"슬롯 머신을 돌려라!\n\n"
+                        + f"{slotSaves[0][0]} {slotSaves[0][1]} {slotSaves[0][2]}\n\n"
+                        + f"현재 누적금 : {decimalComma(economy['jackpot'])}원",
             color = 0xAAAAAA
         )
         embed.set_author(
@@ -442,18 +469,24 @@ async def gambleSlot(interaction):
 
         for i in range(1, 2 + 1):
             await asyncio.sleep(0.5)
-            embed.description = f"슬롯 머신을 돌려라!\n\n{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n현재 누적금 : {economy['jackpot']}원"
+            embed.description = f"슬롯 머신을 돌려라!\n\n"
+            + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
+            + f"현재 누적금 : {decimalComma(economy['jackpot'])}원"
             await interaction.edit_original_response(content=None, embed=embed)
         if slot[0] == 7 and slot[1] == 7 and slot[2] == 7:
             await asyncio.sleep(1)
-            embed.description = f"슬롯 머신을 돌려라!\n\n{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n잭팟!\n{economy['jackpot']}원을 받아 {account['cash']}원이 되었습니다!"
+            embed.description = f"슬롯 머신을 돌려라!\n\n"
+            + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
+            + f"잭팟!\n{decimalComma(economy['jackpot'])}원을 받아 {decimalComma(account['cash'])}원이 되었습니다!"
             embed.color = 0x00FF00
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 잭팟을 터트렸습니다!",
                 icon_url=interaction.user.display_avatar
             )
         else:
-            embed.description = f"슬롯 머신을 돌려라!\n\n{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n실패!\n현재 누적금 : {economy['jackpot']}원"
+            embed.description = f"슬롯 머신을 돌려라!\n\n"
+            + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
+            + f"실패!\n현재 누적금 : {decimalComma(economy['jackpot'])}원"
             embed.color = 0xFF0000
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 슬롯 머신을 돌렸습니다.",
@@ -483,7 +516,11 @@ async def privateDebt(interaction, member: discord.Member, amount: int, rate: fl
                 accept.disabled = True
                 decline.disabled = True
                 account["cash"] += amount
-                await dm.reply(f"해당 차용증을 수락하였습니다.\n매주 이자 {math.floor(amount * (rate / 100))}원을 채무자에게 주어야합니다.\n현재 소지금 : {account['cash']}원")
+                await dm.reply(
+                    f"해당 차용증을 수락하였습니다.\n"
+                    + f"매주 이자 {decimalComma(math.floor(amount * (rate / 100)))}원을 채무자에게 주어야합니다.\n"
+                    + f"현재 소지금 : {decimalComma(account['cash'])}원"
+                )
                 await interaction.response.defer()
             async def decline_callback(interaction):
                 accept.disabled = True
@@ -498,11 +535,17 @@ async def privateDebt(interaction, member: discord.Member, amount: int, rate: fl
             view.add_item(decline)
 
             await interaction.response.send_message(content=None, embed=embed)
-            embed.description = f"채권자 {interaction.user.display_name}\n채무자 {member.display_name}\n\n금액 {amount}원\n이자율 {rate}%\n\n해당 차용증 수락 시 채무자는 채권자에게 매주 이자로 {math.floor(amount * (rate / 100))}원을 주어야하며, 원금 {amount}원을 갚아야합니다.\n해당 차용증을 수락하시겠습니까?"
+            embed.description = (
+                f"채권자 {interaction.user.display_name}\n"
+                + f"채무자 {member.display_name}\n\n"
+                + f"금액 {amount}원\n이자율 {rate}%\n\n"
+                + f"해당 차용증 수락 시 채무자는 채권자에게 매주 이자로 {decimalComma(math.floor(amount * (rate / 100)))}원을 주어야하며, 원금 {decimalComma(amount)}원을 갚아야합니다.\n"
+                + f"해당 차용증을 수락하시겠습니까?"
+            )
             dm = await member.send(content=None, embed=embed, view=view)
         else:
             embed = discord.Embed(
-                description=f"현금이 {-(amount - account['cash'])}원 부족합니다..",
+                description=f"현금이 {decimalComma(-(amount - account['cash']))}원 부족합니다..",
                 color=0xFF0000
             )
             embed.set_author(
@@ -625,7 +668,7 @@ async def giveup(interaction, answer: str):
             saveAccount(account, ["cash"])
 
             embed = discord.Embed(
-                description=f"[{workData['worktype']}] {workData['question']}\n\n제출 : {answer}\n정답입니다!\n보상으로 {workData['reward']}원을 받아 {account['cash']}원이 되었습니다.",
+                description=f"[{workData['worktype']}] {workData['question']}\n\n제출 : {answer}\n정답입니다!\n보상으로 {decimalComma(workData['reward'])}원을 받아 {decimalComma(account['cash'])}원이 되었습니다.",
                 color=0x00FF00
             )
             embed.set_author(
