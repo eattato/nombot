@@ -62,6 +62,8 @@ def log(user, target, act, amount):
 
 def getCurrentTime():
     return datetime.now()
+    target.seconds = 0
+    return target
 
 def timeFormat(target):
     return target.strftime("%Y-%m-%d %H:%M:%S")
@@ -125,7 +127,7 @@ async def check(interaction):
     account = getAccount(interaction.user.id)
 
     # 아예 출첵 기록이 없거나 출첵 기록 하루 이후라면
-    if account["lastseen"] == None or (account["lastseen"] - getCurrentTime()).days >= 1:
+    if account["lastseen"] == None or (getCurrentTime() - account["lastseen"].replace(hour=0, minute=0, second=0)).days >= 1:
         earn = 500
         desc = f"오늘로 {account['streak'] + 1}일 연속으로 출석하셨습니다!\n"
 
@@ -158,7 +160,7 @@ async def check(interaction):
         )
         await interaction.response.send_message(content=None, embed=embed)
     else: # 이미 출석한 경우
-        dateLeft = account["lastseen"] - getCurrentTime()
+        dateLeft = account["lastseen"].replace(hour=0, minute=0, second=0) - getCurrentTime()
         hour = dateLeft.seconds // 3600
         minute = (dateLeft.seconds - 3600 * hour) // 60
 
