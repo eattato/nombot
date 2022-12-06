@@ -400,9 +400,11 @@ async def gambleDice(interaction, stake: int):
         await interaction.edit_original_response(content=None, embed=embed)
         await asyncio.sleep(0.5)
 
-        embed.description = f"주사위를 굴려라!\n"
-        + f"내 주사위 : {playerDice[0]} + {playerDice[1]} = {sum(playerDice)}\n"
-        + f"봇 주사위 : {enemyDice[0]} + {enemyDice[1]} = {sum(enemyDice)}\n\n"
+        embed.description = (
+            f"주사위를 굴려라!\n"
+            + f"내 주사위 : {playerDice[0]} + {playerDice[1]} = {sum(playerDice)}\n"
+            + f"봇 주사위 : {enemyDice[0]} + {enemyDice[1]} = {sum(enemyDice)}\n\n"
+        )
         if result == 0:
             embed.description += f"무승부!\n현재 소지금 : {decimalComma(account['cash'])}원"
             embed.set_author(
@@ -469,24 +471,30 @@ async def gambleSlot(interaction):
 
         for i in range(1, 2 + 1):
             await asyncio.sleep(0.5)
-            embed.description = f"슬롯 머신을 돌려라!\n\n"
-            + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
-            + f"현재 누적금 : {decimalComma(economy['jackpot'])}원"
+            embed.description = (
+                f"슬롯 머신을 돌려라!\n\n"
+                + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
+                + f"현재 누적금 : {decimalComma(economy['jackpot'])}원"
+            )
             await interaction.edit_original_response(content=None, embed=embed)
         if slot[0] == 7 and slot[1] == 7 and slot[2] == 7:
             await asyncio.sleep(1)
-            embed.description = f"슬롯 머신을 돌려라!\n\n"
-            + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
-            + f"잭팟!\n{decimalComma(economy['jackpot'])}원을 받아 {decimalComma(account['cash'])}원이 되었습니다!"
+            embed.description = (
+                f"슬롯 머신을 돌려라!\n\n"
+                + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
+                + f"잭팟!\n{decimalComma(economy['jackpot'])}원을 받아 {decimalComma(account['cash'])}원이 되었습니다!"
+            )
             embed.color = 0x00FF00
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 잭팟을 터트렸습니다!",
                 icon_url=interaction.user.display_avatar
             )
         else:
-            embed.description = f"슬롯 머신을 돌려라!\n\n"
-            + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
-            + f"실패!\n현재 누적금 : {decimalComma(economy['jackpot'])}원"
+            embed.description = (
+                f"슬롯 머신을 돌려라!\n\n"
+                + f"{slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]}\n\n"
+                + f"실패!\n현재 누적금 : {decimalComma(economy['jackpot'])}원"
+            )
             embed.color = 0xFF0000
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 슬롯 머신을 돌렸습니다.",
