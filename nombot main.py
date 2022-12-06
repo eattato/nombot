@@ -96,6 +96,14 @@ async def gamble(interaction, name, stake, callback, stakeLimitMin=None, stakeLi
         )
         await interaction.response.send_message(content=None, embed=embed)
 
+def clearWork(id):
+    cur.execute(f"delete from nombot.workdata where worker = {id}")
+    conn.commit()
+
+def setWork(id, worktype, question, answer, reward):
+    cur.execute(f"insert into nombot.workdata values('{id}', '{worktype}', '{question}', '{answer}', {reward})")
+    conn.commit()
+
 # client events
 @client.event
 async def on_ready():
@@ -504,6 +512,113 @@ async def privateDebt(interaction, member: discord.Member, amount: int, rate: fl
         embed.set_author(
             name=f"{interaction.user.display_name}님이 {member.display_name}님에게 차용증 전송",
             icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
+# works
+@tree.command(name="작업포기", description="지금 하고 있는 작업을 포기합니다.", guild=discord.Object(guildId))
+async def giveup(interaction):
+    data = pd.read_sql(f"select * from nombot.workdata where worker = {interaction.user.id}", conn)
+    if data.shape[0] != 0:
+        clearWork(interaction.user.id)
+
+        embed = discord.Embed(
+            description=f"{data.iloc[0]['worktype']} 작업을 포기했습니다.",
+            color=0x00FF00
+        )
+        embed.set_author(
+            name=f"{interaction.user.display_name}님이 작업을 포기했습니다.",
+            icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            title="작업 포기",
+            description="현재 진행 중인 작업이 없습니다.",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
+@tree.command(name="작업", description="작업을 선택해 완료하면 보수를 지급합니다. 작업포기를 사용해 취소할 수 있습니다.", guild=discord.Object(guildId))
+async def giveup(interaction, work: str):
+    data = pd.read_sql(f"select * from nombot.workdata where worker = {interaction.user.id}", conn)
+    if data.shape[0] == 0:
+        availableWorks = ["수학"]
+        if work in availableWorks:
+            embed = discord.Embed(
+                description=f"```/작업제출```을 사용해 정답을 제출하세요!\n{work} 작업 중..\n\n",
+                color=0x00FF00
+            )
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 {work} 작업을 하는 중 입니다..",
+                icon_url=interaction.user.display_avatar
+            )
+
+            if work == "수학":
+                operator = random.randint(1, 3)
+                num1 = random.randint(1, 100)
+                num2 = random.randint(1, 100)
+                answer = ""
+                if operator == 1:
+                    operator = "+"
+                    answer = f"{num1 + num2}"
+                elif operator == 2:
+                    operator = "-"
+                    answer = f"{num1 - num2}"
+                else:
+                    operator = "x"
+                    answer = f"{num1 * num2}"
+                question = f"{num1} {operator} {num2} = ?"
+                setWork(interaction.user.id, "수학", question, answer, 50)
+                embed.description += f"밑의 수학 문제를 풀고 50원을 받으세요!\n{question}"
+            await interaction.response.send_message(content=None, embed=embed)
+        else:
+            embed = discord.Embed(
+                title="작업",
+                description=f"해당 작업이 존재하지 않습니다.",
+                color=0xFF0000
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            title="작업",
+            description=f"현재 {data.iloc[0]['worktype']} 작업을 진행하고 있어 다른 작업을 진행할 수 없습니다.",
+            color=0xFF0000
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
+@tree.command(name="작업제출", description="작업을 선택해 완료하면 보수를 지급합니다. 작업포기를 사용해 취소할 수 있습니다.", guild=discord.Object(guildId))
+async def giveup(interaction, answer: str):
+    data = pd.read_sql(f"select * from nombot.workdata where worker = {interaction.user.id}", conn)
+    if data.shape[0] != 0:
+        workData = data.iloc[0]
+        if answer == workData["answer"]:
+            clearWork(interaction.user.id)
+            account = getAccount(interaction.user.id)
+            account["cash"] += workData["reward"]
+            saveAccount(account, ["cash"])
+
+            embed = discord.Embed(
+                description=f"[{workData['worktype']}] {workData['question']}\n\n제출 : {answer}\n정답입니다!\n보상으로 {workData['reward']}원을 받아 {account['cash']}원이 되었습니다.",
+                color=0x00FF00
+            )
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 {workData['worktype']} 작업 성공!",
+                icon_url=interaction.user.display_avatar
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+        else:
+            embed = discord.Embed(
+                title="작업 제출",
+                description=f"[{workData['worktype']}] {workData['question']}\n\n제출 : {answer}\n정답이 틀렸습니다!",
+                color=0xFF0000
+            )
+            await interaction.response.send_message(content=None, embed=embed)
+    else:
+        embed = discord.Embed(
+            title="작업 제출",
+            description="현재 진행 중인 작업이 없습니다.",
+            color=0xFF0000
         )
         await interaction.response.send_message(content=None, embed=embed)
 
