@@ -4,11 +4,15 @@ from discord import app_commands
 import mariadb
 import json
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from pytz import timezone
 import random
 import asyncio
 import math
+import cv2
+from PIL import ImageFont, ImageDraw, Image
+import io
 
 guildId = 820582732219547728
 #guildId = 1044579957214556180
@@ -17,6 +21,8 @@ client = discord.Client(intents=discord.Intents.default())
 tree = app_commands.CommandTree(client)
 conn = None # db 연결
 cur = None
+tajaList = []
+tajaFont = None
 
 # private functions
 def getAccount(id):
@@ -543,7 +549,7 @@ async def giveup(interaction):
 async def giveup(interaction, work: str):
     data = pd.read_sql(f"select * from nombot.workdata where worker = {interaction.user.id}", conn)
     if data.shape[0] == 0:
-        availableWorks = ["수학"]
+        availableWorks = ["수학", "타자"]
         if work in availableWorks:
             embed = discord.Embed(
                 description=f"```/작업제출```을 사용해 정답을 제출하세요!\n{work} 작업 중..\n\n",
@@ -571,7 +577,27 @@ async def giveup(interaction, work: str):
                 question = f"{num1} {operator} {num2} = ?"
                 setWork(interaction.user.id, "수학", question, answer, 50)
                 embed.description += f"밑의 수학 문제를 풀고 50원을 받으세요!\n{question}"
-            await interaction.response.send_message(content=None, embed=embed)
+                await interaction.response.send_message(content=None, embed=embed)
+            elif work == "타자":
+                question = tajaList[random.randint(0, len(tajaList) - 1)]
+                answer = question
+                setWork(interaction.user.id, "타자", question, answer, 50)
+                embed.description += f"밑의 문장을 그대로 입력하고 50원을 받으세요!"
+
+                w,h,b,g,r,a = 20 * len(question),50,255,255,255,0
+                img = np.zeros((h, w, 3), np.uint8) # 빈 RGB 채널 이미지 생성
+                img[:] = (54, 57, 63) # 모든 픽셀 컬러 변경
+                img = Image.fromarray(img) # PIL 이미지로 변경
+                draw = ImageDraw.Draw(img)
+                _, _, wt, ht = draw.textbbox((0, 0), question, font=tajaFont)
+                draw.text(((w - wt) / 2, (h - ht) / 2), question, font=tajaFont, fill=(b, g, r, a)) # 텍스트 작성
+                img = np.array(img) # cv2 포맷(numpy 배열)으로 변환
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                successed, buffer = cv2.imencode(".png", img)
+                bytes = io.BytesIO(buffer) # BytesIO 스트림
+
+                embed.set_image(url="attachment://taja.png")
+                await interaction.response.send_message(content=None, embed=embed, file=discord.File(bytes, "taja.png"))
         else:
             embed = discord.Embed(
                 title="작업",
@@ -625,14 +651,23 @@ async def giveup(interaction, answer: str):
 # main
 try:
     # db 연결
-    with open("db.json") as dbConfig:
+    with open("config/db.json") as dbConfig:
         dbConfig = json.load(dbConfig)
         conn = mariadb.connect(**dbConfig) # 딕셔너리를 파라미터로 변환
         cur = conn.cursor()
         print("데이터 베이스 연결 완료")
 
+    # 타자 문장 가져옴
+    with open("resource/taja.txt", encoding="utf8") as f:
+        for line in f.readlines():
+            tajaList.append(line.strip())
+    print(f"타자 문장 {len(tajaList)}개 로드됨")
+
+    # 타자용 폰트 가져옴
+    tajaFont = ImageFont.truetype("resource/Galmuri9.ttf", 20)
+
     # 토큰 로드 & 실행
-    with open("token.txt") as token:
+    with open("config/token.txt") as token:
         token = token.readline()
         client.run(token)
 except FileNotFoundError:
