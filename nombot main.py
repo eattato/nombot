@@ -1,6 +1,5 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
 
 import mariadb
 import json
@@ -450,20 +449,43 @@ async def gambleSlot(interaction):
         
     await gamble(interaction, "슬롯 머신", 100, callback=callback)
 
-@tree.command(name="차용증", description="대상에게 차용증을 써 돈을 빌려줍니다. 매주 설정한 이자율만큼 대상의 빚이 늘어납니다.")
+@tree.command(name="차용증", description="대상에게 차용증을 써 돈을 빌려줍니다. 매주 설정한 이자율만큼 대상의 빚이 늘어납니다.", guild=discord.Object(guildId))
 async def privateDebt(interaction, member: discord.Member, amount: int, rate: float):
     account = getAccount(interaction.user.id)
     if amount > 0 and rate > 0 and rate <= 100:
         if account["cash"] >= amount:
             embed = discord.Embed(
-                description=f"채권자 {interaction.user.display_name}\n채무자 {member.display_name}\n\n금액 {amount}원\n이자율 {rate}%\n\n해당 차용증 수락 시 채무자는 채권자에게 매주 이자로 {math.floor(amount * rate)}원을 주어야하며, 원금 {amount}원을 갚아야합니다.\n해당 차용증을 수락하시겠습니까?",
+                description="차용증을 DM으로 전송했습니다.",
                 color=0x00FFFF
             )
             embed.set_author(
                 name=f"{interaction.user.display_name}님이 {member.display_name}님에게 차용증 전송",
                 icon_url=interaction.user.display_avatar
             )
+
+            accept = discord.ui.Button(label="수락", style=discord.ButtonStyle.success)
+            decline = discord.ui.Button(label="거절", style=discord.ButtonStyle.danger)
+            async def accept_callback(interaction):
+                accept.disabled = True
+                decline.disabled = True
+                account["cash"] += amount
+                await dm.reply(f"해당 차용증을 수락하였습니다.\n매주 이자 {math.floor(amount * (rate / 100))}원을 채무자에게 주어야합니다.\n현재 소지금 : {account['cash']}원")
+                await interaction.response.defer()
+            async def decline_callback(interaction):
+                accept.disabled = True
+                decline.disabled = True
+                await dm.reply("해당 차용증을 거절하였습니다.")
+                await interaction.response.defer()
+
+            accept.callback = accept_callback
+            decline.callback = decline_callback
+            view = discord.ui.View()
+            view.add_item(accept)
+            view.add_item(decline)
+
             await interaction.response.send_message(content=None, embed=embed)
+            embed.description = f"채권자 {interaction.user.display_name}\n채무자 {member.display_name}\n\n금액 {amount}원\n이자율 {rate}%\n\n해당 차용증 수락 시 채무자는 채권자에게 매주 이자로 {math.floor(amount * (rate / 100))}원을 주어야하며, 원금 {amount}원을 갚아야합니다.\n해당 차용증을 수락하시겠습니까?"
+            dm = await member.send(content=None, embed=embed, view=view)
         else:
             embed = discord.Embed(
                 description=f"현금이 {-(amount - account['cash'])}원 부족합니다..",
