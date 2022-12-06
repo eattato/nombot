@@ -75,7 +75,7 @@ def getCurrentEconomy():
     return economyData.iloc[0]
 
 async def gamble(interaction, name, stake, stakeLimitMin, stakeLimitMax, callback):
-    if stakeLimitMin <= stake <= stakeLimitMax:
+    if (stakeLimitMin == None and stakeLimitMax == None) or (stakeLimitMin <= stake <= stakeLimitMax):
         account = getAccount(interaction.user.id)
         if account["cash"] >= stake:
             await callback(account, stake)
@@ -387,6 +387,65 @@ async def gambleDice(interaction, stake: int):
         await interaction.edit_original_response(content=None, embed=embed)
         
     await gamble(interaction, "주사위 도박", stake, stakeLimitMin=500, stakeLimitMax=3000, callback=callback)
+
+@tree.command(name="슬롯머신", description="100원을 소모해 슬롯 머신을 돌려 777을 만들면 누적된 돈을 모두 얻습니다.", guild=discord.Object(guildId))
+async def gambleSlot(interaction):
+    async def callback(account, stake):
+        slot = [random.randint(1, 9), random.randint(1, 9), random.randint(1, 9)]
+        slotSpeed = [random.randint(1, 5), random.randint(1, 5), random.randint(1, 5)]
+        slotSaves = []
+
+        for roll in range(3):
+            slotSave = []
+            for ind, val in enumerate(slot):
+                slot[ind] += slotSpeed[ind]
+                if slot[ind] > 9:
+                    slot[ind] = slot[ind] - 9
+                slotSave.append(slot[ind])
+            slotSaves.append(slotSave)
+
+        stacked = pd.read_sql("select jackpot from nombot.economy", conn).loc["jackpot", 0]
+        if slot[0] == 7 and slot[1] == 7 and slot[2] == 7:
+            cur.execute("update nombot.economy set jackpot = 0")
+            account["cash"] += stacked
+            saveAccount(account, ["cash"]) # save account 하면서 자동 커밋, 위의 execute도 커밋됨
+        else:
+            cur.execute("update nombot.economy set jackpot = jackpot + 100")
+            account["cash"] -= 100
+            saveAccount(account, ["cash"])
+
+        embed = discord.Embed(
+            description=f"슬롯 머신을 돌려라!\n\n[ {slotSaves[0][0]} {slotSaves[0][1]} {slotSaves[0][2]} ]\n\n현재 누적금 : {stacked}원",
+            color = 0xAAAAAA
+        )
+        embed.set_author(
+            name=f"{interaction.user.display_name}님이 슬롯 머신을 돌리는 중 입니다..",
+            icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+
+        for i in range(1, 2 + 1):
+            await asyncio.sleep(0.5)
+            embed.description = f"슬롯 머신을 돌려라!\n\n[ {slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]} ]\n\n현재 누적금 : {stacked}원"
+            await interaction.edit_original_response(content=None, embed=embed)
+        if slot[0] == 7 and slot[1] == 7 and slot[2] == 7:
+            await asyncio.sleep(1)
+            embed.description = f"슬롯 머신을 돌려라!\n\n[ {slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]} ]\n\n잭팟!\n{stacked}원을 받아 {account['cash']}원이 되었습니다!",
+            embed.color = 0x00FF00
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 잭팟을 터트렸습니다!",
+                icon_url=interaction.user.display_avatar
+            )
+        else:
+            embed.description = f"슬롯 머신을 돌려라!\n\n[ {slotSaves[i][0]} {slotSaves[i][1]} {slotSaves[i][2]} ]\n\n실패!\n현재 누적금 : {stacked + 100}원",
+            embed.color = 0xFF0000
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 슬롯 머신을 돌렸습니다.",
+                icon_url=interaction.user.display_avatar
+            )
+        await interaction.response.send_message(content=None, embed=embed)
+        
+    await gamble(interaction, "슬롯 머신", 100, callback=callback)
 
 # main
 try:
