@@ -331,6 +331,8 @@ async def addMoney(interaction, amount: int):
 
 # gamble
 @tree.command(name="반반도박", description="500 ~ 3000원을 소모해 50% 확률로 판돈의 절반을 잃거나 얻습니다.", guild=discord.Object(guildId))
+@app_commands.describe(stake="판돈을 입력하세요!")
+@app_commands.rename(stake="판돈")
 async def gambleHalf(interaction, stake: int):
     async def callback(account, stake):
         result = random.randint(0, 1)
@@ -363,6 +365,8 @@ async def gambleHalf(interaction, stake: int):
     await gamble(interaction, "반반 도박", stake, stakeLimitMin=500, stakeLimitMax=3000, callback=callback)
 
 @tree.command(name="주사위", description="500 ~ 3000원을 소모해 봇 보다 높은 주사위 합이 나오면 돈을 얻습니다.", guild=discord.Object(guildId))
+@app_commands.describe(stake="판돈을 입력하세요!")
+@app_commands.rename(stake="판돈")
 async def gambleDice(interaction, stake: int):
     async def callback(account, stake):
         playerDice = [random.randint(1, 6), random.randint(1, 6)]
@@ -430,6 +434,84 @@ async def gambleDice(interaction, stake: int):
         await interaction.edit_original_response(content=None, embed=embed)
         
     await gamble(interaction, "주사위 도박", stake, stakeLimitMin=500, stakeLimitMax=3000, callback=callback)
+
+@tree.command(name="가위바위보", description="500 ~ 3000원을 소모해 봇을 가위바위보로 이기면 돈을 얻습니다.", guild=discord.Object(guildId))
+@app_commands.describe(stake="판돈을 입력하세요!")
+@app_commands.rename(stake="판돈")
+@app_commands.describe(hand="가위, 바위, 보 중 무엇을 낼 지 결정하세요!")
+@app_commands.choices(hand=[
+    discord.app_commands.Choice(name="가위", value=1),
+    discord.app_commands.Choice(name="바위", value=2),
+    discord.app_commands.Choice(name="보", value=3)
+])
+async def gambleRCP(interaction, hand: discord.app_commands.Choice[int], stake: int):
+    async def callback(account, stake):
+        playerDice = [random.randint(1, 6), random.randint(1, 6)]
+        enemyDice = [random.randint(1, 6), random.randint(1, 6)]
+        result = 0
+        if sum(playerDice) > sum(enemyDice):
+            result = 1
+            account["cash"] += stake
+            saveAccount(account, ["cash"])
+        elif sum(playerDice) < sum(enemyDice):
+            result = -1
+            account["cash"] -= stake
+            saveAccount(account, ["cash"])
+        else:
+            result = 0
+
+        embed = discord.Embed(
+            description=f"주사위를 굴려라!\n"
+                        + f"내 주사위 : {playerDice[0]}\n"
+                        + f"봇 주사위 : {enemyDice[0]}\n\n"
+                        + f"판돈 : {decimalComma(stake)}원",
+            color = 0xAAAAAA
+        )
+        embed.set_author(
+            name=f"{interaction.user.display_name}님이 주사위 도박 중 입니다..",
+            icon_url=interaction.user.display_avatar
+        )
+        await interaction.response.send_message(content=None, embed=embed)
+        await asyncio.sleep(0.5)
+
+        embed.description="주사위를 굴려라!\n"
+        + f"내 주사위 : {playerDice[0]} + {playerDice[1]}\n"
+        + f"봇 주사위 : {enemyDice[0]} + {enemyDice[1]}\n\n"
+        + f"판돈 : {decimalComma(stake)}원"
+        await interaction.edit_original_response(content=None, embed=embed)
+        await asyncio.sleep(0.5)
+
+        embed.description = (
+            f"주사위를 굴려라!\n"
+            + f"내 주사위 : {playerDice[0]} + {playerDice[1]} = {sum(playerDice)}\n"
+            + f"봇 주사위 : {enemyDice[0]} + {enemyDice[1]} = {sum(enemyDice)}\n\n"
+        )
+        if result == 0:
+            embed.description += f"무승부!\n현재 소지금 : {decimalComma(account['cash'])}원"
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 주사위 도박 무승부",
+                icon_url=interaction.user.display_avatar
+            )
+        elif result == 1:
+            embed.description += f"주사위 도박 성공!\n"
+            + f"판돈 {decimalComma(stake)}원을 벌었습니다.\n"
+            + f"현재 소지금 : {decimalComma(account['cash'])}원"
+            embed.color = 0x00FF00
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 주사위 도박 성공",
+                icon_url=interaction.user.display_avatar
+            )
+        elif result == -1:
+            embed.description += f"주사위 도박 실패..\n판돈 {decimalComma(stake)}원을 잃었습니다.\n현재 소지금 : {decimalComma(account['cash'])}원"
+            embed.color = 0xFF0000
+            embed.set_author(
+                name=f"{interaction.user.display_name}님이 주사위 도박 실패",
+                icon_url=interaction.user.display_avatar
+            )
+        await interaction.edit_original_response(content=None, embed=embed)
+        
+    await gamble(interaction, "주사위 도박", stake, stakeLimitMin=500, stakeLimitMax=3000, callback=callback)
+
 
 @tree.command(name="슬롯머신", description="100원을 소모해 슬롯 머신을 돌려 777을 만들면 누적된 돈을 모두 얻습니다.", guild=discord.Object(guildId))
 async def gambleSlot(interaction):
@@ -597,6 +679,12 @@ async def giveup(interaction):
         await interaction.response.send_message(content=None, embed=embed)
 
 @tree.command(name="작업", description="작업을 선택해 완료하면 보수를 지급합니다. 작업포기를 사용해 취소할 수 있습니다.", guild=discord.Object(guildId))
+@app_commands.describe(work="진행할 작업을 선택하세요!")
+@app_commands.rename(work="작업 종류")
+@app_commands.choices(work=[
+    discord.app_commands.Choice(name="수학", value=1),
+    discord.app_commands.Choice(name="타자", value=2)
+])
 async def giveup(interaction, work: str):
     data = pd.read_sql(f"select * from nombot.workdata where worker = {interaction.user.id}", conn)
     if data.shape[0] == 0:

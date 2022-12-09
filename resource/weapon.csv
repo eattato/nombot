@@ -1,0 +1,13 @@
+name,type,level,effeciency,evolution
+나뭇가지,oh-blunt,1,3,각목
+각목,oh-blunt,2,4,나뭇가지
+야구방망이,oh-blunt,3,6,철퇴
+철퇴,oh-blunt,4,7,NaN
+커터칼,oh-sword,1,1,식칼
+식칼,oh-sword,2,2,낡은 단검
+낡은 단검,oh-sword,3,4,손도끼
+손도끼,oh-sword,4,6,마체테
+마체테,oh-sword,5,12,NaN
+뾰족한 파이프,th-sword,2,3,조잡한 검
+조잡한 검,th-sword,3,5,
+카타나,th-sword,4,8,
